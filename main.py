@@ -1,14 +1,17 @@
 #! /usr/bin/env python3.8
 
 import cv2
-import pdb
 import numpy as np
 from scipy import signal as sg
-# import matplotlib.pyplot as plt
-# import imag
 import math
 from os.path import join, dirname
 from utils.Class import Color, Style
+
+# difference between 
+# two images in 
+# blur mode
+IMG_DIFFERENCE = 800_000
+IMG_DIFFERENCE_AVG = 2.60416667
 
 class Kernel:
 	blur = np.ones((3, 3))/9
@@ -17,53 +20,59 @@ class Kernel:
 def saveCurFrame(frame, filename="capture.jpg"):
 	_dir = dirname(__file__)
 
-	cv2.imwrite(join(_dir, "dist/images", filename), cur_frame)	
+	cv2.imwrite(join(_dir, "dist/images", filename), frame)	
 
+def motion(img1, img2) -> bool:
+	if len(img1.shape) not in [1, 3] or len(img2.shape) not in [1, 3]:
+		return
 
-# difference between 
-# two images in 
-# blur mode
-IMG_DIFFERENCE = 800_000
-IMG_DIFFERENCE_AVG = 2.60416667
+	if len(img1.shape) == 3: #rgb
+		img1 = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY)
 
-# define a video capture object
-vid = cv2.VideoCapture(0)
+	if len(img2.shape) == 3: #rgb
+		img2 = cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY)
 
-cur_frame = None
-prev_frame = None
+	if img1.shape != img2.shape:
+		return
 
-i = 0
-while(True):
-	ret, cur_frame = vid.read()
+	img1 = sg.convolve2d(img1, Kernel.blur, mode="same", boundary="fill") 
+	img2 = sg.convolve2d(img2, Kernel.blur, mode="same", boundary="fill")
 
-	if prev_frame is not None:
-		img1 = cv2.cvtColor(cur_frame, cv2.COLOR_BGR2GRAY)
-		img1 = sg.convolve2d(img1, Kernel.blur, mode="same", boundary="fill") 
+	diff = np.sum(abs(img1 - img2))
+	diff_avg = diff/(img1.shape[0]*img1.shape[1])
 
-		img2 = cv2.cvtColor(prev_frame, cv2.COLOR_BGR2GRAY)
-		img2 = sg.convolve2d(img2, Kernel.blur, mode="same", boundary="fill")
+	# return diff >= IMG_DIFFERENCE:
 
-		diff = np.sum(abs(img1 - img2))
-		diff_avg = diff/(img1.shape[0]*img1.shape[1])
+	return diff_avg >= IMG_DIFFERENCE_AVG
 
-		if diff_avg >= IMG_DIFFERENCE_AVG:
-			print(Color.primary(f"[MOTION_DETECTOR]: motion {i + 1} detected"))
-			saveCurFrame(cur_frame, f'capture{i}.jpg')
-			i += 1
+def main():
+	# define a video capture object
+	vid = cv2.VideoCapture(0)
 
-		# if diff >= IMG_DIFFERENCE:
-		# 	print(i)
+	cur_frame = None
+	prev_frame = None
 
-	# cv2.imshow('frame', cur_frame)
+	i = 0
+	while(True):
+		ret, cur_frame = vid.read()
 
-	prev_frame = cur_frame
+		if prev_frame is not None and motion(cur_frame, prev_frame):
+				print(Color.primary(f"[MOTION_DETECTOR]: motion {i + 1} detected"))
+				saveCurFrame(cur_frame, f'capture{i}.jpg')
+				i += 1
 
-	# the 'q' button is set as the
-	# quitting button you may use any
-	# desired button of your choice
-	if cv2.waitKey(1) & 0xFF == ord('q'):
-		break
+		# cv2.imshow('frame', cur_frame)
 
-# After the loop release the cap object
-vid.release()
-cv2.destroyAllWindows()
+		prev_frame = cur_frame
+
+		# the 'q' button is set as the
+		# quitting button
+		if cv2.waitKey(1) & 0xFF == ord('q'):
+			break
+
+	# After the loop release the cap object
+	vid.release()
+	cv2.destroyAllWindows()
+
+if __name__ == "__main__":
+	main()
