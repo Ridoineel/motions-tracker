@@ -1,2 +1,7 @@
-dist/images/*.*
 __pycache__
+logs/*.*
+assets/*.png
+/dist
+*.avi
+*.mp4
+*.jpg
