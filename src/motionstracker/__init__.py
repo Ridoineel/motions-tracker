@@ -42,10 +42,28 @@ class MotionsTracker:
 		else:
 			self.runImagesCapture(duration, accuracy)
 
+	def getVideoCaptureObject(self):
+		# using front webcam
+
+		for index in [0, 1, -1]:
+			try: 
+				vid = cv2.VideoCapture(index)
+
+				# defile a video writer object
+				ret, init_frame = vid.read()
+
+				if ret:
+					return vid
+			except:
+				pass
+
+		print(Color.danger(f"[{MODULE_NAME.upper()}]: Pas de caméra accessible"))
+		exit()
+
 	def runImagesCapture(self, duration, accuracy):
 		
 		# define a video capture object
-		vid = cv2.VideoCapture(0)
+		vid = self.getVideoCaptureObject()
 
 		cur_frame = None
 		prev_frame = None
@@ -83,7 +101,7 @@ class MotionsTracker:
 		t = time.time()
 		
 		# define a video capture object
-		vid = cv2.VideoCapture(0)
+		vid = self.getVideoCaptureObject()
 
 		# defile a video writer object
 		ret, init_frame = vid.read()
