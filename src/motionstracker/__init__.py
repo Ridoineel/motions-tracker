@@ -26,22 +26,68 @@ class MotionsTracker:
 
 		self.outputFormat = outputFormat
 
-		if self.outputFormat != "videos":
+		if self.outputFormat != "video":
 			self.outputFormat = "images"
 
 	def run(self, duration=None, accuracy=1):
 		"""
 			@duration: duration of motions detection
 						in second
+			@accuracy: between 0 and 1
 
 		"""
 
+		if self.outputFormat == "video":
+			self.runVideoCapture(duration, accuracy)
+		else:
+			self.runImagesCapture(duration, accuracy)
+
+	def runImagesCapture(self, duration, accuracy):
+		
 		# define a video capture object
 		vid = cv2.VideoCapture(0)
 
-		# defile a wideo writer object
+		cur_frame = None
+		prev_frame = None
+
+
+		# start time (s)
+		t1 = time.time()
+
+		i = 0
+		while True:
+			ret, cur_frame = vid.read()
+
+			if prev_frame is not None and self.moving(cur_frame, prev_frame, accuracy):
+					print(Color.primary(f"[{MODULE_NAME.upper()}]: motion {i + 1} detected"))
+					
+					# save the image
+					t = time.time()
+					self.saveCurrentFrame(cur_frame, f'motion-{i:03}-{t}.jpg', self.outputDirectory)
+
+					i += 1
+
+			prev_frame = cur_frame
+
+			# get current time
+			# and exit if time exceeded
+			t2 = time.time()
+			if duration != None and (t2 - t1) >= duration:
+				break
+
+		vid.release()
+
+
+	def runVideoCapture(self, duration, accuracy):
+
 		t = time.time()
+		
+		# define a video capture object
+		vid = cv2.VideoCapture(0)
+
+		# defile a video writer object
 		ret, init_frame = vid.read()
+
 		framesSize = (init_frame.shape[1], init_frame.shape[0])
 		out = cv2.VideoWriter(
 			join(self.outputDirectory, f'motions-video-{t}.avi'),
@@ -63,15 +109,10 @@ class MotionsTracker:
 
 			if prev_frame is not None and self.moving(cur_frame, prev_frame, accuracy):
 					print(Color.primary(f"[{MODULE_NAME.upper()}]: motion {i + 1} detected"))
-					
-					if self.outputFormat == "images":
-						# save the image
-						t = time.time()
-						self.saveCurrentFrame(cur_frame, f'capture_{i}_{t}.jpg', self.outputDirectory)
-					else:
-						# write frame
-						# for the video
-						out.write(cur_frame)
+
+					# write frame
+					# for the video
+					out.write(cur_frame)
 
 					i += 1
 
@@ -82,10 +123,10 @@ class MotionsTracker:
 			t2 = time.time()
 			if duration != None and (t2 - t1) >= duration:
 				break
-
 		
 		vid.release()
 		out.release()
+
 
 	def moving(self, img1, img2, accuracy=1):
 		if len(img1.shape) not in [1, 3] or len(img2.shape) not in [1, 3]:
